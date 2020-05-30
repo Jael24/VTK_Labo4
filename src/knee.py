@@ -2,29 +2,63 @@ import vtk
 
 # Based on https://lorensen.github.io/VTKExamples/site/Python/IO/ReadSLC/#code
 
-if __name__ == '__main__':
-    colors = vtk.vtkNamedColors()
 
+def create_sphere(radius, center, theta_resolution=50, phi_resolution=50):
+    sphere = vtk.vtkSphereSource()
+    sphere.SetThetaResolution(theta_resolution)
+    sphere.SetPhiResolution(phi_resolution)
+    sphere.SetCenter(center[0], center[1], center[2])
+    sphere.SetRadius(radius)
+
+    return sphere
+
+
+if __name__ == '__main__':
     # vtkSLCReader to read.
     reader = vtk.vtkSLCReader()
     reader.SetFileName('vw_knee.slc')
     reader.Update()
 
     # Implementing Marching Cubes Algorithm to create the surface using vtkContourFilter object.
-    contourFilter = vtk.vtkContourFilter()
-    contourFilter.SetInputConnection(reader.GetOutputPort())
-    contourFilter.SetValue(0, 72.0)
+    contourFilterBone = vtk.vtkContourFilter()
+    contourFilterBone.SetInputConnection(reader.GetOutputPort())
+    contourFilterBone.SetValue(0, 72.0)
+
+    contourFilterBoneAndSkin = vtk.vtkContourFilter()
+    contourFilterBoneAndSkin.SetInputConnection(reader.GetOutputPort())
+    contourFilterBoneAndSkin.SetValue(0, 72.0)
+    contourFilterBoneAndSkin.SetValue(1, 50.0)
+
+    sphere = vtk.vtkSphere()
+    sphere.SetRadius(00.1)
+    sphere.SetCenter(0, 0, 0)
+
+    impliciteFunction = vtk.vtkImplicitBoolean()
+    impliciteFunction.SetOperationTypeToDifference()
+    impliciteFunction.AddFunction(sphere)
+
+    sample = vtk.vtkSampleFunction()
+    sample.SetImplicitFunction(impliciteFunction)
+    #sample.SetModelBounds(-1, 2, -1, 1, -1, 1)
+    #sample.SetSampleDimensions(40, 40, 40)
+    sample.ComputeNormalsOff()
+
+    contourFilterBoneAndSkin.SetInputConnection(sample.GetOutputPort())
 
     outliner = vtk.vtkOutlineFilter()
     outliner.SetInputConnection(reader.GetOutputPort())
     outliner.Update()
 
+    # Create 4 mappers and actors.
     actors = []
     mappers = []
+    contourFilters = []
     for i in range(4):
-        # Create a mapper.
         mappers.append(vtk.vtkPolyDataMapper())
-        mappers[i].SetInputConnection(contourFilter.GetOutputPort())
+        mappers[i].SetInputConnection(contourFilterBoneAndSkin.GetOutputPort())
+        if i == 1:
+            mappers[i].SetInputConnection(contourFilterBone.GetOutputPort())
+
         mappers[i].SetScalarVisibility(0)
 
         actors.append(vtk.vtkActor())
