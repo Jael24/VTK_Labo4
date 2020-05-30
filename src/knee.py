@@ -1,6 +1,8 @@
 import vtk
 
 SKIN_COLOR = (225 / 255, 172 / 255, 150 / 255)
+SKIN_ISO_VALUE = 50.0
+BONE_ISO_VALUE = 72.0
 
 # Based on https://lorensen.github.io/VTKExamples/site/Python/IO/ReadSLC/#code
 
@@ -29,7 +31,7 @@ def create_contour(iso_value):
 
 
 def create_bone():
-    cf_bone = create_contour(72.0)
+    cf_bone = create_contour(BONE_ISO_VALUE)
     mapper_bone = vtk.vtkPolyDataMapper()
     mapper_bone.SetInputConnection(cf_bone.GetOutputPort())
     mapper_bone.SetScalarVisibility(0)
@@ -41,7 +43,7 @@ def create_bone():
 
 
 def create_skin(implicit_function = False):
-    cf_skin = create_contour(50.0)
+    cf_skin = create_contour(SKIN_ISO_VALUE)
 
     clip = vtk.vtkClipPolyData()
     clip.SetInputConnection(cf_skin.GetOutputPort())
@@ -58,6 +60,40 @@ def create_skin(implicit_function = False):
     skin.GetProperty().SetColor(SKIN_COLOR)
 
     return skin
+
+def create_sliced_skin():
+    plane = vtk.vtkPlane()
+
+    impl_plane = vtk.vtkImplicitBoolean()
+    impl_plane.SetOperationTypeToDifference()
+    impl_plane.AddFunction(plane)
+
+    cf = create_contour(SKIN_ISO_VALUE)
+
+    cutter = vtk.vtkCutter()
+    cutter.SetInputConnection(cf.GetOutputPort())
+    cutter.SetCutFunction(plane)
+
+    for i in range(19):
+        cutter.SetValue(i, i * 11)
+
+    stripper = vtk.vtkStripper()
+    stripper.SetInputConnection(cutter.GetOutputPort())
+    stripper.Update()
+
+    tube_filter = vtk.vtkTubeFilter()
+    tube_filter.SetInputConnection(stripper.GetOutputPort())
+    tube_filter.SetRadius(2.0)
+
+    mapper_skin = vtk.vtkPolyDataMapper()
+    mapper_skin.SetInputConnection(tube_filter.GetOutputPort())
+    mapper_skin.SetScalarVisibility(0)
+
+    actor = vtk.vtkActor()
+    actor.SetMapper(mapper_skin)
+    actor.GetProperty().SetColor(SKIN_COLOR)
+
+    return actor
 
 
 def read_SLC_file(filename):
@@ -85,7 +121,7 @@ if __name__ == '__main__':
     # Create mappers and actors.
 
     # Knee with lot of transparent slices
-    actor_sliced = create_skin()
+    actor_sliced = create_sliced_skin()
 
     # Knee with opacity on front-face and a sphere to see the patella
     actor_opaque = create_skin(impl_sphere)
