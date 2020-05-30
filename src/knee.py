@@ -1,68 +1,112 @@
 import vtk
 
+SKIN_COLOR = (225 / 255, 172 / 255, 150 / 255)
+
 # Based on https://lorensen.github.io/VTKExamples/site/Python/IO/ReadSLC/#code
 
 
-def create_sphere(radius, center, theta_resolution=50, phi_resolution=50):
-    sphere = vtk.vtkSphereSource()
-    sphere.SetThetaResolution(theta_resolution)
-    sphere.SetPhiResolution(phi_resolution)
-    sphere.SetCenter(center[0], center[1], center[2])
-    sphere.SetRadius(radius)
+def create_sphere(radius, center, thetaResolution = 50, phiResolution = 50):
+    s = vtk.vtkSphere()
+    s.SetRadius(radius)
+    s.SetCenter(center)
 
-    return sphere
+    ss = vtk.vtkSphereSource()
+    ss.SetThetaResolution(thetaResolution)
+    ss.SetPhiResolution(phiResolution)
+    ss.SetCenter(center)
+    ss.SetRadius(radius)
+
+    return s, ss
+
+
+# Implementing Marching Cubes Algorithm to create the surface using vtkContourFilter object.
+def create_contour(iso_value):
+    contourFilter = vtk.vtkContourFilter()
+    contourFilter.SetInputConnection(reader.GetOutputPort())
+    contourFilter.SetValue(0, iso_value)
+
+    return contourFilter
+
+
+def create_bone():
+    cf_bone = create_contour(72.0)
+    mapper_bone = vtk.vtkPolyDataMapper()
+    mapper_bone.SetInputConnection(cf_bone.GetOutputPort())
+    mapper_bone.SetScalarVisibility(0)
+
+    bone = vtk.vtkActor()
+    bone.SetMapper(mapper_bone)
+
+    return bone
+
+
+def create_skin(implicit_function = False):
+    cf_skin = create_contour(50.0)
+
+    clip = vtk.vtkClipPolyData()
+    clip.SetInputConnection(cf_skin.GetOutputPort())
+    if implicit_function:
+        clip.SetClipFunction(implicit_function)
+    clip.GenerateClippedOutputOn()
+
+    mapper_skin = vtk.vtkPolyDataMapper()
+    mapper_skin.SetInputConnection(clip.GetOutputPort())
+    mapper_skin.SetScalarVisibility(0)
+
+    skin = vtk.vtkActor()
+    skin.SetMapper(mapper_skin)
+    skin.GetProperty().SetColor(SKIN_COLOR)
+
+    return skin
+
+
+def read_SLC_file(filename):
+    # vtkSLCReader to read.
+    read = vtk.vtkSLCReader()
+    read.SetFileName(filename)
+    read.Update()
+
+    return read
 
 
 if __name__ == '__main__':
-    # vtkSLCReader to read.
-    reader = vtk.vtkSLCReader()
-    reader.SetFileName('vw_knee.slc')
-    reader.Update()
+    reader = read_SLC_file('vw_knee.slc')
 
-    # Implementing Marching Cubes Algorithm to create the surface using vtkContourFilter object.
-    contourFilterBone = vtk.vtkContourFilter()
-    contourFilterBone.SetInputConnection(reader.GetOutputPort())
-    contourFilterBone.SetValue(0, 72.0)
+    sphere, sphere_source = create_sphere(50, (60, 50, 105))
 
-    contourFilterBoneAndSkin = vtk.vtkContourFilter()
-    contourFilterBoneAndSkin.SetInputConnection(reader.GetOutputPort())
-    contourFilterBoneAndSkin.SetValue(0, 72.0)
-    contourFilterBoneAndSkin.SetValue(1, 50.0)
-
-    sphere = vtk.vtkSphere()
-    sphere.SetRadius(00.1)
-    sphere.SetCenter(0, 0, 0)
-
-    impliciteFunction = vtk.vtkImplicitBoolean()
-    impliciteFunction.SetOperationTypeToDifference()
-    impliciteFunction.AddFunction(sphere)
-
-    sample = vtk.vtkSampleFunction()
-    sample.SetImplicitFunction(impliciteFunction)
-    #sample.SetModelBounds(-1, 2, -1, 1, -1, 1)
-    #sample.SetSampleDimensions(40, 40, 40)
-    sample.ComputeNormalsOff()
-
-    contourFilterBoneAndSkin.SetInputConnection(sample.GetOutputPort())
+    impl_sphere = vtk.vtkImplicitBoolean()
+    impl_sphere.SetOperationTypeToDifference()
+    impl_sphere.AddFunction(sphere)
 
     outliner = vtk.vtkOutlineFilter()
     outliner.SetInputConnection(reader.GetOutputPort())
     outliner.Update()
 
-    # Create 4 mappers and actors.
-    actors = []
-    mappers = []
-    contourFilters = []
-    for i in range(4):
-        mappers.append(vtk.vtkPolyDataMapper())
-        mappers[i].SetInputConnection(contourFilterBoneAndSkin.GetOutputPort())
-        if i == 1:
-            mappers[i].SetInputConnection(contourFilterBone.GetOutputPort())
+    # Create mappers and actors.
 
-        mappers[i].SetScalarVisibility(0)
+    # Knee with lot of transparent slices
+    actor_sliced = create_skin()
 
-        actors.append(vtk.vtkActor())
-        actors[i].SetMapper(mappers[i])
+    # Knee with opacity on front-face and a sphere to see the patella
+    actor_opaque = create_skin(impl_sphere)
+    inside_skin = vtk.vtkProperty()
+    inside_skin.SetColor(SKIN_COLOR)
+    actor_opaque.SetBackfaceProperty(inside_skin)
+
+    actor_opaque.GetProperty().SetOpacity(0.5)
+
+    # Knee without opacity and with an opaque sphere to see the patella
+    actor_knee_sphere = create_skin(impl_sphere)
+    mapper = vtk.vtkPolyDataMapper()
+
+    mapper.SetInputConnection(sphere_source.GetOutputPort())
+
+    actor_sphere = vtk.vtkActor()
+    actor_sphere.SetMapper(mapper)
+    actor_sphere.GetProperty().SetOpacity(0.25)
+
+    # Knee without skin
+    actor_bone = create_bone()
 
     # Create a rendering window.
     renderWindow = vtk.vtkRenderWindow()
@@ -88,8 +132,13 @@ if __name__ == '__main__':
             renderers[i].SetActiveCamera(camera)
 
         # Assign actor to the renderers.
-        renderers[i].AddActor(actors[i])
+        renderers[i].AddActor(actor_bone)
         renderers[i].SetBackground(bg_colors[i])
+
+    renderers[0].AddActor(actor_knee_sphere)
+    renderers[0].AddActor(actor_sphere)
+    renderers[2].AddActor(actor_sliced)
+    renderers[3].AddActor(actor_opaque)
 
     # Pick a good view
     renderers[0].GetActiveCamera().SetPosition(-382.606608, -3.308563, 223.475751)
