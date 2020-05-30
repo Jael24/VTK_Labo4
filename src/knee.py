@@ -10,10 +10,6 @@ if __name__ == '__main__':
     reader.SetFileName('vw_knee.slc')
     reader.Update()
 
-    # Create a mapper.
-    mapper = vtk.vtkPolyDataMapper()
-    mapper.SetInputConnection(reader.GetOutputPort())
-
     # Implementing Marching Cubes Algorithm to create the surface using vtkContourFilter object.
     contourFilter = vtk.vtkContourFilter()
     contourFilter.SetInputConnection(reader.GetOutputPort())
@@ -23,12 +19,16 @@ if __name__ == '__main__':
     outliner.SetInputConnection(reader.GetOutputPort())
     outliner.Update()
 
-    mapper = vtk.vtkPolyDataMapper()
-    mapper.SetInputConnection(contourFilter.GetOutputPort())
-    mapper.SetScalarVisibility(0)
+    actors = []
+    mappers = []
+    for i in range(4):
+        # Create a mapper.
+        mappers.append(vtk.vtkPolyDataMapper())
+        mappers[i].SetInputConnection(contourFilter.GetOutputPort())
+        mappers[i].SetScalarVisibility(0)
 
-    actor = vtk.vtkActor()
-    actor.SetMapper(mapper)
+        actors.append(vtk.vtkActor())
+        actors[i].SetMapper(mappers[i])
 
     # Create a rendering window.
     renderWindow = vtk.vtkRenderWindow()
@@ -54,7 +54,7 @@ if __name__ == '__main__':
             renderers[i].SetActiveCamera(camera)
 
         # Assign actor to the renderers.
-        renderers[i].AddActor(actor)
+        renderers[i].AddActor(actors[i])
         renderers[i].SetBackground(bg_colors[i])
 
     # Pick a good view
