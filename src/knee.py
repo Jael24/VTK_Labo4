@@ -1,7 +1,6 @@
 import vtk
 import os
 
-
 SKIN_COLOR = (225 / 255, 172 / 255, 150 / 255)
 SKIN_ISO_VALUE = 50.0
 BONE_ISO_VALUE = 72.0
@@ -129,12 +128,11 @@ def create_or_get_bone_distanced():
         color_mapper.SetInputConnection(reader.GetOutputPort())
         color_mapper.SetScalarRange(reader.GetOutput().GetScalarRange())
 
-
-
     bone = vtk.vtkActor()
     bone.SetMapper(color_mapper)
 
     return bone
+
 
 def read_SLC_file(filename):
     # vtkSLCReader to read.
@@ -143,8 +141,6 @@ def read_SLC_file(filename):
     read.Update()
 
     return read
-
-
 
 
 if __name__ == '__main__':
@@ -186,6 +182,10 @@ if __name__ == '__main__':
     # Knee without skin
     bone_color = create_or_get_bone_distanced()
 
+    # outline of the knee
+    outline_filter = vtk.vtkOutlineFilter()
+    outline_filter.SetInputConnection(reader.GetOutputPort())
+    
 
     # Create a rendering window.
     renderWindow = vtk.vtkRenderWindow()
