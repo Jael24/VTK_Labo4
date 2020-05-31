@@ -134,6 +134,20 @@ def create_or_get_bone_distanced():
     return bone
 
 
+def create_outline():
+    outline_filter = vtk.vtkOutlineFilter()
+    outline_filter.SetInputConnection(reader.GetOutputPort())
+
+    mapper_outline = vtk.vtkPolyDataMapper()
+    mapper_outline.SetInputConnection(outline_filter.GetOutputPort())
+
+    actor = vtk.vtkActor()
+    actor.SetMapper(mapper_outline)
+    actor.GetProperty().SetColor(0, 0, 0)  # Black
+
+    return actor
+
+
 def read_SLC_file(filename):
     # vtkSLCReader to read.
     read = vtk.vtkSLCReader()
@@ -182,10 +196,8 @@ if __name__ == '__main__':
     # Knee without skin
     bone_color = create_or_get_bone_distanced()
 
-    # outline of the knee
-    outline_filter = vtk.vtkOutlineFilter()
-    outline_filter.SetInputConnection(reader.GetOutputPort())
-    
+    # Outline of the knee
+    actor_outline = create_outline()
 
     # Create a rendering window.
     renderWindow = vtk.vtkRenderWindow()
@@ -213,6 +225,7 @@ if __name__ == '__main__':
         if i != 1:
             # Assign actor to the renderers.
             renderers[i].AddActor(create_bone())
+        renderers[i].AddActor(actor_outline)
 
         renderers[i].SetBackground(bg_colors[i])
 
@@ -223,11 +236,12 @@ if __name__ == '__main__':
     renderers[3].AddActor(actor_opaque)
 
     # Pick a good view
-    renderers[0].GetActiveCamera().SetPosition(-382.606608, -3.308563, 223.475751)
+    renderers[0].GetActiveCamera().SetPosition(-382.606608, -10.308563, 223.475751)
     renderers[0].GetActiveCamera().SetFocalPoint(77.311562, 72.821162, 100.000000)
-    renderers[0].GetActiveCamera().SetViewUp(0.235483, 0.137775, 0.962063)
-    renderers[0].GetActiveCamera().SetDistance(482.25171)
+    renderers[0].GetActiveCamera().SetViewUp(0.835483, 0.137775, 0.962063)
+    renderers[0].GetActiveCamera().SetDistance(1682.25171)
     renderers[0].GetActiveCamera().SetClippingRange(27.933848, 677.669341)
+
 
     # Create a renderwindowinteractor.
     renderWindowInteractor = vtk.vtkRenderWindowInteractor()
