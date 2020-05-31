@@ -1,13 +1,16 @@
 import vtk
+import os
+
 
 SKIN_COLOR = (225 / 255, 172 / 255, 150 / 255)
 SKIN_ISO_VALUE = 50.0
 BONE_ISO_VALUE = 72.0
 
+
 # Based on https://lorensen.github.io/VTKExamples/site/Python/IO/ReadSLC/#code
 
 
-def create_sphere(radius, center, thetaResolution = 50, phiResolution = 50):
+def create_sphere(radius, center, thetaResolution=50, phiResolution=50):
     s = vtk.vtkSphere()
     s.SetRadius(radius)
     s.SetCenter(center)
@@ -42,7 +45,7 @@ def create_bone():
     return bone
 
 
-def create_skin(implicit_function = False):
+def create_skin(implicit_function=False):
     cf_skin = create_contour(SKIN_ISO_VALUE)
 
     clip = vtk.vtkClipPolyData()
@@ -60,6 +63,7 @@ def create_skin(implicit_function = False):
     skin.GetProperty().SetColor(SKIN_COLOR)
 
     return skin
+
 
 def create_sliced_skin():
     plane = vtk.vtkPlane()
@@ -96,6 +100,42 @@ def create_sliced_skin():
     return actor
 
 
+def create_or_get_bone_distanced():
+    cf_bone = create_contour(BONE_ISO_VALUE)
+    cf_skin = create_contour(SKIN_ISO_VALUE)
+    color_mapper = vtk.vtkPolyDataMapper()
+
+    if not os.path.exists("bone_distance.vtk"):
+        distance_pdFilter = vtk.vtkDistancePolyDataFilter()
+        distance_pdFilter.SetInputConnection(0, cf_bone.GetOutputPort())
+        distance_pdFilter.SetInputConnection(1, cf_skin.GetOutputPort())
+        distance_pdFilter.SignedDistanceOff()
+        distance_pdFilter.Update()
+
+        # write in the files
+        writer = vtk.vtkPolyDataWriter()
+        writer.SetFileName("bone_distance.vtk")
+        writer.SetInputData(distance_pdFilter.GetOutput())
+        writer.Write()
+
+        color_mapper.SetInputData(distance_pdFilter.GetOutput())
+        color_mapper.SetScalarRange(distance_pdFilter.GetOutput().GetPointData().GetScalars().GetRange())
+
+    else:
+        reader = vtk.vtkPolyDataReader()
+        reader.SetFileName("bone_distance.vtk")
+        reader.Update()
+
+        color_mapper.SetInputConnection(reader.GetOutputPort())
+        color_mapper.SetScalarRange(reader.GetOutput().GetScalarRange())
+
+
+
+    bone = vtk.vtkActor()
+    bone.SetMapper(color_mapper)
+
+    return bone
+
 def read_SLC_file(filename):
     # vtkSLCReader to read.
     read = vtk.vtkSLCReader()
@@ -103,6 +143,8 @@ def read_SLC_file(filename):
     read.Update()
 
     return read
+
+
 
 
 if __name__ == '__main__':
@@ -142,7 +184,8 @@ if __name__ == '__main__':
     actor_sphere.GetProperty().SetOpacity(0.25)
 
     # Knee without skin
-    actor_bone = create_bone()
+    bone_color = create_or_get_bone_distanced()
+
 
     # Create a rendering window.
     renderWindow = vtk.vtkRenderWindow()
@@ -167,12 +210,15 @@ if __name__ == '__main__':
         else:
             renderers[i].SetActiveCamera(camera)
 
-        # Assign actor to the renderers.
-        renderers[i].AddActor(actor_bone)
+        if i != 1:
+            # Assign actor to the renderers.
+            renderers[i].AddActor(create_bone())
+
         renderers[i].SetBackground(bg_colors[i])
 
     renderers[0].AddActor(actor_knee_sphere)
     renderers[0].AddActor(actor_sphere)
+    renderers[1].AddActor(bone_color)
     renderers[2].AddActor(actor_sliced)
     renderers[3].AddActor(actor_opaque)
 
