@@ -1,3 +1,9 @@
+# Lab : 4 - Knee
+# Author : Jael Dubey & Robel Teklehaimanot
+# Date : 31 May 2020
+
+import time
+
 import vtk
 import os
 
@@ -7,7 +13,6 @@ BONE_ISO_VALUE = 72.0
 
 
 # Based on https://lorensen.github.io/VTKExamples/site/Python/IO/ReadSLC/#code
-
 
 def create_sphere(radius, center, thetaResolution=50, phiResolution=50):
     s = vtk.vtkSphere()
@@ -157,6 +162,26 @@ def read_SLC_file(filename):
     return read
 
 
+def auto_camera(renwin):
+    while True:
+        time.sleep(0.03)
+        renderers[0].GetActiveCamera().Azimuth(1)
+        renwin.Render()
+
+
+def manual_camera(renwin):
+    # Create a renderwindowinteractor.
+    renderWindowInteractor = vtk.vtkRenderWindowInteractor()
+    renderWindowInteractor.SetRenderWindow(renwin)
+
+    renwin.Render()
+
+    # Enable user interface interactor.
+    renderWindowInteractor.Initialize()
+    renwin.Render()
+    renderWindowInteractor.Start()
+
+
 if __name__ == '__main__':
     reader = read_SLC_file('vw_knee.slc')
 
@@ -165,10 +190,6 @@ if __name__ == '__main__':
     impl_sphere = vtk.vtkImplicitBoolean()
     impl_sphere.SetOperationTypeToDifference()
     impl_sphere.AddFunction(sphere)
-
-    outliner = vtk.vtkOutlineFilter()
-    outliner.SetInputConnection(reader.GetOutputPort())
-    outliner.Update()
 
     # Create mappers and actors.
 
@@ -236,20 +257,13 @@ if __name__ == '__main__':
     renderers[3].AddActor(actor_opaque)
 
     # Pick a good view
-    renderers[0].GetActiveCamera().SetPosition(-382.606608, -10.308563, 223.475751)
-    renderers[0].GetActiveCamera().SetFocalPoint(77.311562, 72.821162, 100.000000)
-    renderers[0].GetActiveCamera().SetViewUp(0.835483, 0.137775, 0.962063)
-    renderers[0].GetActiveCamera().SetDistance(1682.25171)
-    renderers[0].GetActiveCamera().SetClippingRange(27.933848, 677.669341)
+    renderers[0].ResetCamera()
+    renderers[0].GetActiveCamera().Azimuth(90)
+    renderers[0].GetActiveCamera().Roll(90)
+    renderers[0].GetActiveCamera().Azimuth(90)
 
+    # Choose between automatic camera (which turn around the scanner)
+    # or a interactive camera.
 
-    # Create a renderwindowinteractor.
-    renderWindowInteractor = vtk.vtkRenderWindowInteractor()
-    renderWindowInteractor.SetRenderWindow(renderWindow)
-
-    renderWindow.Render()
-
-    # Enable user interface interactor.
-    renderWindowInteractor.Initialize()
-    renderWindow.Render()
-    renderWindowInteractor.Start()
+    auto_camera(renderWindow)
+    # manual_camera(renderWindow)
